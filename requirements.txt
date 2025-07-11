@@ -1,0 +1,12 @@
+nbtschematic~=0.2.1
+PyAutoGUI~=0.9.54
+requests~=2.32.3
+NBT~=1.5.1
+frozendict~=2.4.6
+PyGetWindow~=0.0.9
+setuptools~=78.1.0
+numpy~=1.26.4
+opencv-python~=4.11.0.86
+pytesseract~=0.3.13
+matplotlib~=3.10.1
+pillow~=11.1.0

@@ -35,5 +35,15 @@ class PathGestion:
 
         return file
 
+    def get_mod_loaders(self):
+        if self.ng_dir is None:
+            raise ValueError("Le chemin du dossier ng n'est pas enregistré")
+
+        else:
+
+            path = os.path.join(self.ng_dir, "versions/stable/")
+            with open(f"{path}/ForgeModLoader-client-0.log", "r") as file:
+                file = file.readlines()
 
 
+        return file

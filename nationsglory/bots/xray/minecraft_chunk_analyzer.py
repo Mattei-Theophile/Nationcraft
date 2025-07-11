@@ -4,8 +4,9 @@ Minecraft Chunk Analyzer - Command Line Interface
 """
 import os
 import argparse
-import chunks
-from detection_chunk import count_blocks_in_chunk, find_blocks_by_id, BLOCK_ID_NAMES, analyze_world_chunks
+from nationsglory.bots.xray import chunks
+from nationsglory.bots.xray.detection_chunk import count_blocks_in_chunk, find_blocks_by_id, BLOCK_ID_NAMES, analyze_world_chunks
+import anvil
 
 def main():
     parser = argparse.ArgumentParser(description="Analyze Minecraft chunks and regions")
@@ -81,11 +82,10 @@ def main():
         block_list = chunks.extract_blocks_from_chunk(chunk)
 
         block_name = BLOCK_ID_NAMES.get(args.block_id, f"Unknown (ID: {args.block_id})")
-        found_blocks = find_blocks_by_id(args.block_id, block_list)
+        cpt_blocks = find_blocks_by_id(args.block_id, block_list)
 
-        print(f"Found {len(found_blocks)} instances of {block_name} in chunk (x:{args.chunk_x}, z:{args.chunk_z})")
-        for i, block in enumerate(found_blocks[:20]):
-            print(f"{i+1}. Position: (x:{block['x']}, y:{block['y']}, z:{block['z']})")
+        print(f"Found {cpt_blocks} of {block_name} in chunk (x:{args.chunk_x}, z:{args.chunk_z})")
+
 
     elif args.command == "schematic":
         region = anvil.Region.from_file(args.file)
@@ -108,4 +108,5 @@ def main():
         parser.print_help()
 
 
-main()
+if __name__ == "__main__":
+    main()

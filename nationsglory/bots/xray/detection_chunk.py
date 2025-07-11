@@ -1,33 +1,18 @@
-import chunks
+from nationsglory.bots.xray import chunks
 import anvil
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple
+import json
+import os
 
-# Define constants for block IDs and their names
-BLOCK_ID_NAMES = {
-    3658: "server",
-    54: "chest",
-    146: "chest",
-    3886: "rf",
-    3664: "electric_meter",
-    158: "dropper",
-    3574: "switch",
-    3575: "repair_machine",
-    3576: "ecotron",
-    3663: "electric_collector",
-    3379: "sealable",
-    2845: "heavy_wire",
-    49: "obsidian",
-    3657: "petroleum",
-    3383: "solar_panel",
-    212: "dark_ore",
-    52: "spawner",
-    3572: "incubator",
-    7: "bedrock",
-    1: "stone",
-    0: None  # Air blocks to skip
-}
 
-def find_blocks_by_id(block_id: int, blocks: List[anvil.block]) -> List[Dict[str, int]]:
+
+def load_block_id():
+    """Load block IDs from ids.json configuration file."""
+    config_path = os.path.join('nationsglory', 'config', 'ids.json')
+    with open(config_path, 'r') as f:
+        return json.load(f)
+
+def find_blocks_by_id(block_id: int, block_data:int, blocks: List[anvil.block]) -> List[Dict[str, int]]:
     """
     Finds and returns the coordinates of all blocks with a specific block ID from a list of blocks.
 
@@ -43,11 +28,11 @@ def find_blocks_by_id(block_id: int, blocks: List[anvil.block]) -> List[Dict[str
     :return: A list of dictionaries, each containing the coordinates of blocks (`x`, `y`, `z`) that match the given ID.
     :rtype: List[Dict[str, int]]
     """
-    coordinates = []
+    cpt = 0
     for block in blocks:
-        if block_id == block.id:
-            coordinates.append({"x": block.x, "y": block.y, "z": block.z})
-    return coordinates
+        if block_id == block.id and block_data == block.data:
+            cpt += 1
+    return cpt
 
 def find_blocks_in_chunks(block_id: int, chunk_list: List[anvil.Chunk]) -> List[Dict[Tuple[int, int], int]]:
     """
@@ -70,15 +55,16 @@ def find_blocks_in_chunks(block_id: int, chunk_list: List[anvil.Chunk]) -> List[
     """
     results = []
     for chunk in chunk_list:
-        coordinates = find_blocks_by_id(block_id, chunks.get_chunk_matrice(chunk))
-        results.append({(chunk.x, chunk.z): len(coordinates)})
+        coordinates = find_blocks_by_id(block_id, chunks.extract_blocks_from_chunk(chunk))
+        results.append({(chunk.x, chunk.z): coordinates})
     return results
+
 
 def count_blocks_in_chunk(chunk_blocks: List[anvil.block]) -> Dict[str, int]:
     """
     Counts the occurrences of each block type in a chunk and returns a dictionary
     mapping block names to their counts. Non-air blocks are considered, and block
-    names are retrieved from a global mapping. If a block name is not available
+    names are retrieved from ids.json. If a block name is not available
     in the mapping, the string representation of its ID is used.
 
     :param chunk_blocks: A list of block objects from the chunk.
@@ -87,6 +73,13 @@ def count_blocks_in_chunk(chunk_blocks: List[anvil.block]) -> Dict[str, int]:
     :rtype: Dict[str, int]
     """
     block_counts = {}
+    block_data = load_block_id()
+
+    # Create a dictionary to map (item_id, metadata) to block name
+    block_mapping = {}
+    for item in block_data:
+        key = (item["item_id"], item["metadata"])
+        block_mapping[key] = item["name"]
 
     for block in chunk_blocks:
         # Skip air blocks
@@ -94,9 +87,17 @@ def count_blocks_in_chunk(chunk_blocks: List[anvil.block]) -> Dict[str, int]:
             continue
 
         # Get block name from the mapping or use string ID as fallback
-        block_name = BLOCK_ID_NAMES.get(block.id)
-        if block_name is None and block.id != 0:
-            block_name = str(block.id)
+        block_key = (block.id, block.data)
+        block_name = block_mapping.get(block_key)
+
+        # Try with metadata 0 as fallback if specific metadata not found
+        if block_name is None:
+            block_key = (block.id, 0)
+            block_name = block_mapping.get(block_key)
+
+        # Use block ID as string if no mapping found
+        if block_name is None:
+            block_name = f"Unknown Block (ID: {block.id}, Data: {block.data})"
 
         # Increment counter for this block type
         if block_name in block_counts:
@@ -106,7 +107,8 @@ def count_blocks_in_chunk(chunk_blocks: List[anvil.block]) -> Dict[str, int]:
 
     return block_counts
 
-def analyze_world_chunks():
+
+def analyze_world_chunks(server: str, dimension: str = "overworld"):
     """
     Analyzes Minecraft world chunks for specific blocks and their counts. It processes MCA files
     to retrieve chunks, evaluates block matrices within those chunks, and calculates the count of
@@ -117,45 +119,24 @@ def analyze_world_chunks():
 
     :return: None
     """
-    files = chunks.get_mca_files("cyan", "")
+    files = chunks.get_mca_files(server, dimension)
     blocks_by_location = {}
-
-    # Counters for summary statistics
-    totals = {
-        "chest": 0,
-        "obsidian": 0,
-        "rf": 0
-    }
 
     # Process all files and chunks
     for file in files:
-        chunk_list = chunks.get_list_of_chunks_by_mca(file)
+        chunk_list = chunks.extract_chunks_from_region_file(file)
 
         for chunk in chunk_list:
             # Optional filtering by chunk coordinates:
             # Earth region: 116 <= chunk.x <= 128 and -175 >= chunk.z >= -186
             # Moon region: -27 <= chunk.x <= -25 and -24 <= chunk.z <= -22
 
-            block_list = chunks.get_chunk_matrice(chunk)
+            block_list = chunks.extract_blocks_from_chunk(chunk)
             block_counts = count_blocks_in_chunk(block_list)
 
             if block_counts:
                 chunk_key = f"x:{chunk.x*16}, z:{chunk.z*16}"
                 blocks_by_location[chunk_key] = block_counts
 
-    # Print results and update totals
-    for location, block_data in blocks_by_location.items():
-        print(f"{location}: {block_data}")
 
-        # Update totals for summary
-        totals["rf"] += block_data.get("rf", 0)
-        totals["obsidian"] += block_data.get("obsidian", 0)
-        totals["chest"] += block_data.get("chest", 0)
-
-    # Print summary statistics
-    print(f"Total chests: {totals['chest']}")
-    print(f"Total obsidian: {totals['obsidian']}")
-    print(f"Total RF blocks: {totals['rf']}")
-
-if __name__ == "__main__":
-    analyze_world_chunks()
+    return blocks_by_location

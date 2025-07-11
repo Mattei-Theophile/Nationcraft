@@ -3,14 +3,14 @@ Utilities for working with Minecraft chunk data and schematics.
 """
 # Standard library imports
 import glob
-from typing import List, Dict, Optional
+from typing import List
 
 # Third-party imports
 import anvil
 from nbtschematic import SchematicFile
 
 # Local imports
-from settings import PathGestion
+from nationsglory.config.settings import PathGestion
 
 # Constants
 DIMENSION_PATHS = {
@@ -93,7 +93,7 @@ def extract_blocks_from_chunk(chunk: anvil.Chunk) -> List[anvil.block]:
     return list(chunk.stream_chunk())
 
 
-def save_chunks_as_schematic(chunk_block_lists: List[List[anvil.block]], output_path: str) -> None:
+def save_chunks_as_schematic(chunk_block_lists: List[List[anvil.block]]) -> SchematicFile:
     """
     Saves a list of chunk blocks as a schematic file. Each chunk consists of a list
     of blocks, and their data is processed to create a schematic representation.
@@ -104,10 +104,12 @@ def save_chunks_as_schematic(chunk_block_lists: List[List[anvil.block]], output_
     :param chunk_block_lists: A list of chunks where each chunk is a list of
         `anvil.block` objects representing the structure of blocks and containing
         data such as their coordinates and metadata.
-    :param output_path: The file path where the schematic should be saved as a
-        string.
+
     :return: None
     """
+
+
+    
     # Shape: (y, z, x)
     schematic = SchematicFile(shape=(256, 16 * len(chunk_block_lists), 16 * len(chunk_block_lists)))
 
@@ -116,4 +118,4 @@ def save_chunks_as_schematic(chunk_block_lists: List[List[anvil.block]], output_
             schematic.blocks[block.y, block.z, block.x] = block.y
             schematic.data[block.y, block.z, block.x] = block.data
 
-    schematic.save(output_path)
+    return schematic
